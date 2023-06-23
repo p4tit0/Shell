@@ -20,14 +20,12 @@ enum exceptions {
   INV_FILE_EXT,
   CANT_OPEN_FILE,
   INV_SCHED_TIME,
-  NO_TASKS,
-  INS_TASK_ARGS,
-  TOO_MANY_TASK_ARGS,
-  INV_TASK_ARGS,
-  ASSIGN_TASK_ERROR,
+  NO_PROCESSES,
+  INS_PROCESS_ARGS,
+  TOO_MANY_PROCESS_ARGS,
+  INV_PROCESS_ARGS,
+  ASSIGN_PROCESS_ERROR,
   MAX_EXCEPTIONS,
-  COMPILE_REGEX_ERROR,
-  MATCH_FAILED
 };
 
 static const char *const exception_names[] = {
@@ -36,32 +34,24 @@ static const char *const exception_names[] = {
     [INV_FILE_EXT] = "INVALID_FILE_EXTENSION_EXCEPTION",
     [CANT_OPEN_FILE] = "CANT_OPEN_FILE",
     [INV_SCHED_TIME] = "INVALID_SCHEDULING_TIME",
-    [NO_TASKS] = "NO_TASKS",
-    [INS_TASK_ARGS] = "INSUFICIENT_TASK_ARGUMENTS",
-    [TOO_MANY_TASK_ARGS] = "TOO_MANY_TASK_ARGS",
-    [INV_TASK_ARGS] = "INVALID_TASK_ARGUMENTS",
-    [ASSIGN_TASK_ERROR] = "ASSIGN_TASK_ERROR",
-    [COMPILE_REGEX_ERROR] = "COMPILE_REGEX_ERROR",
-    [MATCH_FAILED] = "REGEX_MATCH_FAILED"
+    [NO_PROCESSES] = "NO_PROCESSES",
+    [INS_PROCESS_ARGS] = "INSUFICIENT_PROCESS_ARGUMENTS",
+    [TOO_MANY_PROCESS_ARGS] = "TOO_MANY_PROCESS_ARGS",
+    [INV_PROCESS_ARGS] = "INVALID_PROCESS_ARGUMENTS",
+    [ASSIGN_PROCESS_ERROR] = "ASSIGN_PROCESS_ERROR"
 };
 
 static const char *const exception_desc[] = {
-    [PATH_VER_ERR] = "Erro ao verificar o caminho informado! O caminho "
-                     "informado não existe.",
-    [INV_PATH] = "O caminho informado é inválido! O caminho deve ser para um "
-                 "arquivo \".txt\".",
+    [PATH_VER_ERR] = "Erro ao verificar o caminho informado! O caminho informado não existe.",
+    [INV_PATH] = "O caminho informado é inválido! O caminho deve ser para um arquivo \".txt\".",
     [INV_FILE_EXT] = "O arquivo de input não é um \".txt\"!",
     [CANT_OPEN_FILE] = "O arquivo não pôde ser aberto!",
     [INV_SCHED_TIME] = "Tempo total de simulação inválido!",
-    [NO_TASKS] = "Não há tarefas o suficiente no arquivo de input para "
-                 "realizar a simulação!",
-    [INS_TASK_ARGS] =
-        "Uma ou mais tarefas não possúem parâmetros o suficiente!",
-    [TOO_MANY_TASK_ARGS] = "Uma ou mais tarefas possuem parâmetros de mais!",
-    [INV_TASK_ARGS] = "Uma ou mais tarefas possúi parâmetros inválidos!",
-    [ASSIGN_TASK_ERROR] = "Erro ao atribuir tarefas!",
-    [COMPILE_REGEX_ERROR] = "Erreo ao compilar o Regex",
-    [MATCH_FAILED] = "Falha na correspondência Regex"
+    [NO_PROCESSES] = "Não há processos o suficiente no arquivo de input para realizar a simulação!",
+    [INS_PROCESS_ARGS] = "Um ou mais processos não possúem parâmetros o suficiente!",
+    [TOO_MANY_PROCESS_ARGS] = "Um ou mais processos possuem parâmetros de mais!",
+    [INV_PROCESS_ARGS] = "Uma ou mais processos possúi parâmetros inválidos!",
+    [ASSIGN_PROCESS_ERROR] = "Erro ao atribuir processos!"
 };
 
 
@@ -69,31 +59,31 @@ struct Rate {
     struct Instruction Instruction;
 };
 
-struct task {
+struct process {
     char *name;
     int execTime;
     int period;
 };
 
-struct Action {
-    struct task currtask;
+struct task {
+    struct process currtask;
     int cont;
     int continuation;
     int reachedDeadLine;
 };
 
-struct ActionList {
-    struct Action data;
-    struct ActionList *next;
+struct taskList {
+    struct task data;
+    struct taskList *next;
 };
-typedef struct ActionList *ActionNode;
+typedef struct taskList *TaskNode;
 
 Exception *execptionArr;
 int numOfExceptions = 0;
 
-ActionNode simulation;
+TaskNode simulation;
 
-struct task *tasks;
+struct process *tasks;
 
 int numOfTasks = 0;
 int totalTimeunits = 0;
@@ -110,8 +100,8 @@ int totalTimeunits = 0;
  *
  * @Return - None.
  */
-void insertionSort(struct task arr[], int n) {
-    struct task current;
+void insertionSort(struct process arr[], int n) {
+    struct process current;
     int j;
 
     for (int i = 1; i < n; i++) {
@@ -130,9 +120,9 @@ void insertionSort(struct task arr[], int n) {
  *
  * @Return - novo Action node.
  */
-ActionNode createActionNode() {
-    ActionNode temp;
-    temp = (ActionNode)malloc(sizeof(struct ActionList));
+TaskNode createActionNode() {
+    TaskNode temp;
+    temp = (TaskNode)malloc(sizeof(struct taskList));
     temp->next = NULL;
     return temp;
 }
@@ -142,8 +132,8 @@ ActionNode createActionNode() {
  *
  * @Return - novo head node.
  */
-ActionNode addAction(ActionNode head, struct Action value) {
-    ActionNode temp, p;
+TaskNode addAction(TaskNode head, struct task value) {
+    TaskNode temp, p;
     temp = createActionNode();
     temp->data = value;
     if (head == NULL) {
@@ -204,33 +194,7 @@ int isNumeric(char *string, size_t len) {
     return 1;
 }
 
-/*
-static int checkRegex(char *regex, char *textToCheck) {
-    regex_t ptrn_bf;
-    int reti;
-
-    reti = regcomp(&ptrn_bf, regex, REG_EXTENDED);
-    if (reti) {
-        addException(COMPILE_REGEX_ERROR);
-        return -1;
-    }
-
-    reti = regexec(&ptrn_bf, textToCheck, 0, NULL, 0);
-    if (!reti) {
-        return 1;
-    } else if (reti == REG_NOMATCH) {
-        return 0;
-    } else {
-        addException(MATCH_FAILED);
-        return -1;
-    }
-
-    regfree(&ptrn_bf);
-}
-*/
-
 static void readInputFile(char *filePath) {
-    clock_t begin = clock();
     FILE *fp;
     char *line = NULL;
     size_t len = 0;
@@ -244,8 +208,8 @@ static void readInputFile(char *filePath) {
 
     int lineIdx = 0;
 
-    tasks = (struct task *) malloc(0);
-    if (!tasks) { addException(ASSIGN_TASK_ERROR); return; }
+    tasks = (struct process *) malloc(0);
+    if (!tasks) { addException(ASSIGN_PROCESS_ERROR); return; }
 
     while ((read = getline(&line, &len, fp)) != -1) {
     
@@ -256,32 +220,34 @@ static void readInputFile(char *filePath) {
         } else {
             numOfTasks++;
           
-            struct task *moreTasks = (struct task *)realloc(tasks, numOfTasks * sizeof(struct task));
-            if (!moreTasks) { addException(ASSIGN_TASK_ERROR); return; }
+            struct process *moreTasks = (struct process *)realloc(tasks, numOfTasks * sizeof(struct process));
+            if (!moreTasks) { addException(ASSIGN_PROCESS_ERROR); return; }
             tasks = moreTasks;
     
-            struct task newTask;
+            struct process newProces;
           
             char *token = strtok(line, " ");
-            newTask.name = (char *)malloc(sizeof(token));
-            strcpy(newTask.name, token);
+            newProces.name = (char *) malloc(sizeof(token));
+            strcpy(newProces.name, token);
           
             token = strtok(NULL, " ");
-            if (token == NULL) { addException(INS_TASK_ARGS); return; }
-            if (!isNumeric(token, strlen(token))) { addException(INV_TASK_ARGS); return; }
+            if (token == NULL) { addException(INS_PROCESS_ARGS); return; }
+            if (!isNumeric(token, strlen(token))) { addException(INV_PROCESS_ARGS); return; }
           
-            newTask.period = atoi(token);
-          
-            token = strtok(NULL, " ");
-            if (token == NULL) { addException(INS_TASK_ARGS); return; }
-            if (!isNumeric(token, strlen(token))) { addException(INV_TASK_ARGS); return; }
-          
-            newTask.execTime = atoi(token);
+            newProces.period = atoi(token);
           
             token = strtok(NULL, " ");
-            if (token != NULL) { addException(TOO_MANY_TASK_ARGS); return; }
+            if (token == NULL) { addException(INS_PROCESS_ARGS); return; }
+            if (!isNumeric(token, strlen(token))) { addException(INV_PROCESS_ARGS); return; }
           
-            tasks[numOfTasks - 1] = newTask;
+            newProces.execTime = atoi(token);
+          
+            token = strtok(NULL, " ");
+            if (token != NULL) { addException(TOO_MANY_PROCESS_ARGS); return; }
+
+            if (newProces.execTime == 0 || newProces.period == 0 || newProces.execTime > newProces.period) { addException(INV_PROCESS_ARGS); return; }
+            
+            tasks[numOfTasks - 1] = newProces;
         }
         lineIdx++;
     }
@@ -289,55 +255,7 @@ static void readInputFile(char *filePath) {
         printf("name: \"%s\" | exec_time: %d | period %d\n", tasks[i].name, tasks[i].execTime, tasks[i].period);
     }
 
-  // idx = 0;
-
-  /*
-  char *token = strtok(txt, "\r\n");
-  char **lines;
-  while (token != NULL) {
-    char *aux[idx + 1];
-    for (int i = 0; i < idx; i++) {
-      aux[i] = lines[i];
-    }
-    free(lines);
-    aux[idx] = token;
-    lines = (char **)malloc(sizeof(aux));
-    for (int i = 0; i <= idx; i++) {
-      lines[i] = aux[i];
-    }
-    token = strtok(NULL, "\r\n");
-    idx++;
-  }
-  printf("%s\n%s\n%s\n", lines[0], lines[1], lines[2]);
-  totalTimeunits = atoi(lines[0]);
-  if (totalTimeunits <= 0) {
-    addException(INV_SCHED_TIME);
-  }
-  numOfTasks = idx - 1;
-  if (numOfTasks <= 0) {
-    addException(NO_TASKS);
-  }
-
-  tasks = (struct task *)malloc(sizeof(struct task) * numOfTasks);
-  for (int i = 0; i < idx - 1; i++) {
-    tasks[i].name = strtok(lines[i + 1], " ");
-    char *aux = strtok(NULL, " ");
-    char *aux1 = strtok(NULL, " ");
-    if (aux == NULL || aux1 == NULL) {
-      addException(INS_TASK_ARGS);
-    }
-    tasks[i].period = atoi(aux);
-    tasks[i].execTime = atoi(aux1);
-    if (tasks[i].period <= 0 || tasks[i].execTime <= 0 ||
-        tasks[i].execTime > tasks[i].period) {
-      addException(INV_TASK_ARGS);
-    }
-  } */
-
     fclose(fp);
-    clock_t end = clock();
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-    printf("READ TIME: %lf\n", time_spent);
 }
 
 
